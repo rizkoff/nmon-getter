@@ -5,7 +5,7 @@ fname=ARGV[0]
 raise "THE FILE '#{fname}' is not a readable file, EXITING!" unless File.readable? fname
 
 raw_hash, clean_hash = {}, {}
-hdisk_hdr_BBBC,hdr_BBBB,h = '',nil,{}
+hdisk_hdr_BBBC,hdr_BBBB,hdr_CPU_ALL,hdr_cpu_N,h = '',nil,nil,nil,{}
 ii = 0
 
 f=File.open(fname,'r')
@@ -49,11 +49,40 @@ f.each_line{|l|
         raw_hash['BBBC']['lspv'] ||= []; raw_hash['BBBC']['lspv'] << attrs[2]
       end
     end  
+    when a0=='BBBV'
+    raw_hash['BBBV'] ||= []
+    raw_hash['BBBV'] << attrs[2]
+    when a0=='CPU_ALL'
+    if raw_hash['CPU_ALL'].nil?
+      raw_hash['CPU_ALL'] = []
+      hdr_CPU_ALL=l.split(/,/) ; hdr_CPU_ALL.shift
+    else
+      vals = l.split(/,/); vals.shift
+      h={}; hdr_CPU_ALL.each_with_index{|o,i| h[o] = vals[i]}
+      raw_hash['CPU_ALL'] << h
+    end
+    when m = a0.match(/^CPU\d+$/)
+    cpu_N=m[0]
+    if raw_hash[cpu_N].nil?
+      raw_hash[cpu_N] = []
+      if hdr_cpu_N.nil?
+        hdr_cpu_N=l.split(/,/); hdr_cpu_N.shift; hdr_cpu_N[0]='timelabel';
+      end
+    else
+      vals = l.split(/,/); vals.shift
+      h={}; hdr_cpu_N.each_with_index{|o,i| h[o] = vals[i]}
+      raw_hash[cpu_N] << h
+    end
+      
+    else
+    nil
   end
   
   ii += 1
-  break unless ['AAA','BBBB','BBBC'].include? attrs[0]
+  #break unless ['AAA','BBBB','BBBC','BBBV'].include? attrs[0]
 }
-puts raw_hash['BBBC']['lspv'].inspect
+#puts raw_hash['BBBV'].inspect
 puts ii
 f.close
+require 'yaml'
+File.open('parse-result.yml','w'){|f| f.write raw_hash.to_yaml }

@@ -1,0 +1,8 @@
+* 
+hdisk4          00c0b757eeaccae2                    cftstb6data1vg
+goes wrong slot
+
+* SOLVED
+nmon bug:
+CPU129 appears in nmon without announcing by header
+
