@@ -1,11 +1,25 @@
 #!/usr/bin/env ruby
 
+class Parser
+  @@PARSER||={'PAGE'=>{:handler=>:hdr_match},'PROC'=>{:handler=>:hdr_match}}
+  #def self.parser; @@PARSER end
+  def hdr_match(cat)
+    puts "def'd hdr_match for #{cat}"
+  end
+
+  def self.parse
+#handlers = {
+  #:hdr_match => Proc.new{|cat|
+    #puts "hdr_match called for: #{cat}"
+  #}
+#}
+
 #STDOUT.printf("#{ARGV[0].inspect}");
 fname=ARGV[0]
 raise "THE FILE '#{fname}' is not a readable file, EXITING!" unless File.readable? fname
 
 raw_hash, clean_hash = {}, {}
-hdisk_hdr_BBBC,hdr_BBBB,hdr_CPU_ALL,hdr_cpu_N,h = '',nil,nil,nil,{}
+hdisk_hdr_BBBC,hdr_BBBB,hdr_CPU_ALL,hdr_cpu_N,hdr_MEM,hdr_MEMNEW,hdr_,h = '',nil,nil,nil,nil,{},{}
 ii = 0
 
 f=File.open(fname,'r')
@@ -73,9 +87,42 @@ f.each_line{|l|
       h={}; hdr_cpu_N.each_with_index{|o,i| h[o] = vals[i]}
       raw_hash[cpu_N] << h
     end
+    when a0=='MEM'
+    if raw_hash['MEM'].nil?
+      raw_hash['MEM'] = []
+      hdr_MEM=l.split(/,/) ; hdr_MEM.shift
+    else
+      vals = l.split(/,/); vals.shift
+      h={}; hdr_MEM.each_with_index{|o,i| h[o] = vals[i]}
+      raw_hash['MEM'] << h
+    end
+    when a0=='MEMNEW'
+    if raw_hash['MEMNEW'].nil?
+      raw_hash['MEMNEW'] = []
+      hdr_MEMNEW=l.split(/,/) ; hdr_MEMNEW.shift
+    else
+      vals = l.split(/,/); vals.shift
+      h={}; hdr_MEMNEW.each_with_index{|o,i| h[o] = vals[i]}
+      raw_hash['MEMNEW'] << h
+    end
+    when a0=='MEMUSE'
+    if raw_hash['MEMUSE'].nil?
+      raw_hash['MEMUSE'] = []
+      hdr_['MEMUSE']=l.split(/,/) ; hdr_['MEMUSE'].shift
+    else
+      vals = l.split(/,/); vals.shift
+      h={}; hdr_['MEMUSE'].each_with_index{|o,i| h[o] = vals[i]}
+      raw_hash['MEMUSE'] << h
+    end
       
     else
     nil
+    ##Parser.parser.each{|cat,v|
+    #@@PARSER.each{|cat,v|
+      ##puts ":::: #{handlers[v[:handler]].call(cat)}"
+      #send v[:handler], cat
+    #}
+    #raise "here;;; at #{ii}; #{self.class}"
   end
   
   ii += 1
@@ -86,3 +133,8 @@ puts ii
 f.close
 require 'yaml'
 File.open('parse-result.yml','w'){|f| f.write raw_hash.to_yaml }
+end #Parser.parse
+end #class Parser
+
+Parser.parse
+
