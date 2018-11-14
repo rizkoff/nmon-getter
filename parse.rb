@@ -4,18 +4,20 @@ require 'yaml'
 class Parser
   @@parser||={
     ['AAA']=>{:handler=>:key_value,:opts=>{:pattern => /^(AAA),(.+?)[,\s](.+)$/}},
-    ['BBBB']=>{:handler=>:hdr_match,:opts=>{:excl => 0}},
+    ['BBBL']=>{:handler=>:key_value,:opts=>{:excl => 0, :pattern => /^([^,]+),(.+?),(.+?)(?:,(.+))?$/}},  # /^([^,]+),(.+?),(.+?),(.+)$/
+    ['BBBB','BBBN','BBBD']=>{:handler=>:hdr_match,:opts=>{:excl => 0, :pattern_skip=>/^BBBD,000,/}},
     ['BBBC']=>{:handler=>:fill_hash,:opts=>{:idx => 1, :pattern => /hdisk\d+:$/}},
-    ['BBBV']=>{:handler => :fill_array, :opts=>{:idx => 1}},
-    ['CPU_ALL','MEM','MEMNEW','MEMUSE']=>{:handler => :hdr_match},
+    ['BBBV','BBBP']=>{:handler => :fill_array, :opts=>{:excl => 0, :pattern => /([^,]+),?/}},
+    ['CPU_ALL','MEM','MEMNEW','MEMUSE','PAGE','PROC','FILE','NET','NETPACKET','NETSIZE','NETERROR','DISKBUSY','DISKREAD','DISKWRITE','DISKXFER','DISKRXFER','DISKBSIZE','DISKRIO','DISKWIO','DISKAVGRIO','DISKAVGWIO','IOADAPT','JFSFILE','JFSINODE']=>{:handler => :hdr_match},
     [/^CPU\d+$/]=>{:handler => :hdr_match,:opts=>{:hdr_categ => 'timelabel'}}
-  }#'PAGE'=>{:handler=>:hdr_match},'PROC'=>{:handler=>:hdr_match}}
+  }
   @@raw_hash, @@clean_hash, @@hdr_ = {}, {}, {}
   @@l = ''
   def self.raw_hash; @@raw_hash; end
  
   def self.hdr_match(opts={})
     la = @@l.split(/,/); categ = la.shift;
+    return if opts[:pattern_skip] && @@l.match(opts[:pattern_skip])
     la.delete_at(opts[:excl]) if opts[:excl]
     hdr_categ = opts[:hdr_categ] || categ
     if @@raw_hash[categ].nil?
@@ -30,9 +32,10 @@ class Parser
     end
   end
   def self.fill_array(opts={})
-    la = @@l.split(/,/); categ = la.shift
+    la = @@l.scan(opts[:pattern]).flatten; categ = la.shift
+    la.delete_at(opts[:excl]) if opts[:excl]
     @@raw_hash[categ] ||= []
-    @@raw_hash[categ] << la[ opts[:idx] ]
+    @@raw_hash[categ] << la.join(',')
   end
   def self.fill_hash(opts={})
     idx = opts[:idx]; pattern = opts[:pattern]
@@ -48,13 +51,16 @@ class Parser
   def self.key_value(opts={})
     pattern = opts[:pattern]
     la = @@l.scan(pattern)[0]; categ = la.shift
+    la.delete_at(opts[:excl]) if opts[:excl]
     @@raw_hash[categ] ||= {}
     @@raw_hash[categ][la[0]] = la[1]
   end
 
   def self.parse(fname)
+    @@ii=0
     f=File.open(fname,'r')
     f.each_line{|l|
+      @@ii+=1
       @@l = l.chomp!; attrs = @@l.split /,/ ; a0 = attrs[0]
 
       @@parser.each{|ka,v|
